@@ -7,17 +7,19 @@ import hashlib
 import time
 from MessengeCheckers import checkerMessengesWithText
 
+
 @bot.message_handler(commands=['start', 'help'])
 def sendWelcome(message):
-	bot.reply_to(message, "Привет, я телеграм-бот, готовый помочь в решении OSINT задач!")
+    bot.reply_to(message, "Привет, я телеграм-бот, готовый помочь в решении OSINT задач!")
+
 
 @bot.message_handler(content_types='text')
 def checkTextMessenge(message):
     bot.reply_to(message, checkerMessengesWithText(message.text))
 
-@bot.message_handler(content_types=['document','photo', 'audio', 'video'])
-def checkFileMessenge(message):
 
+@bot.message_handler(content_types=['document', 'photo', 'audio', 'video'])
+def checkFileMessenge(message):
     file_info = bot.get_file(message.json.get('document', {}).get('file_id'))
     downloadedFile = bot.download_file(file_info.file_path)
     src = 'files/download/' + message.json.get('document', {}).get('file_name')
@@ -29,10 +31,10 @@ def checkFileMessenge(message):
             'x-apikey': vitusTotalAPI
         }
         files = {'file': (src, new_file)}
-        response = requests.post(apiUrl, headers=headers, files =files)
+        response = requests.post(apiUrl, headers=headers, files=files)
         if response.status_code == 200:
             print("Файл успешно загружен:")
-            linkOfAnalysis = response.json().get('data',{}).get('links').get('self')
+            linkOfAnalysis = response.json().get('data', {}).get('links').get('self')
         else:
             print(f"Ошибка при загрузке файла: {response.status_code}")
             print(response.text)
@@ -99,11 +101,14 @@ def checkFileMessenge(message):
     #         analysis = await client.scan_file(f, wait_for_completion=True)
     #         f.close()
     #     print(analysis)
+
+
 def get_file_hash(file_path):
     hashType = hashlib.sha256()
     with open(file_path, 'rb') as f:
         for chunk in iter(lambda: f.read(65536), b''):
             hashType.update(chunk)
     return hashType.hexdigest()
-    
+
+
 bot.infinity_polling()
