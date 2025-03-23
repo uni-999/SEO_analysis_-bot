@@ -1,6 +1,7 @@
 import requests
 import whois
 from InputDict import dictForSearch
+from scapy.all import *
 
 def formatDates(dateList):
     if not isinstance (dateList, list):
@@ -46,17 +47,18 @@ def processString(key, value, w) -> str:
         dataInIndex = SourceData
         return f"{key}: {dataInIndex}\n"
 
-def findIp(ipaddr, fua):
+def findIp(ipAddress, fua):
     result = str()
     try:
         headers = {
             'User-Agent': fua
         }
-        data = requests.get(f'https://ipinfo.io/{ipaddr}/json', headers=headers).json()
+        data = requests.get(f'https://ipinfo.io/{ipAddress}/json', headers=headers).json()
     except Exception as ex:
         return ex
     message = (
         f"IP-адрес: {data.get('ip', 'N/A')}\n"
+        f"Открытые порты: {str(findOpenPortsByIP(ipAddress))}\n"
         f"Хостнейм: {data.get('hostname', 'N/A')}\n"
         f"Город: {data.get('city', 'N/A')}\n"
         f"Регион: {data.get('region', 'N/A')}\n"
@@ -87,3 +89,14 @@ def findPhoneNumber(phonenumber, fua):
         f"Часть света: {data.get('country', {}).get('location', 'N/A')}"
     )
     return message
+
+def findOpenPortsByIP(ipAddress):
+    openPorts = []
+    packets = [IP(dst=ipAddress) / TCP(dport=port, flags="S") for port in range(1, 1025)]
+    responses, _ = sr(packets, timeout=2, verbose=0)
+    for sent, received in responses:
+        if received.haslayer(TCP) and received[TCP].flags == 0x12:  # SYN-ACK
+            openPorts.append(sent[TCP].dport)
+            sr1(IP(dst=ipAddress) / TCP(dport=sent[TCP].dport, flags="R"), timeout=0.1, verbose=0)
+    result = ', '.join(map(str, openPorts))
+    return result
