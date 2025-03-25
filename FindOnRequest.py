@@ -1,5 +1,8 @@
 import requests
+import telebot
 import whois
+from Configuration import bot, vitusTotalAPI, apiUrl
+import time
 from InputDict import dictForSearch
 from scapy.all import *
 
@@ -100,3 +103,72 @@ def findOpenPortsByIP(ipAddress):
             sr1(IP(dst=ipAddress) / TCP(dport=sent[TCP].dport, flags="R"), timeout=0.1, verbose=0)
     result = ', '.join(map(str, openPorts))
     return result
+
+def fileSecurityReport(message):
+    file_info = bot.get_file(message.json.get('document', {}).get('file_id'))
+    downloadedFile = bot.download_file(file_info.file_path)
+    src = 'files/download/' + message.json.get('document', {}).get('file_name')
+    with open(src, 'wb') as new_file:
+        new_file.write(downloadedFile)
+        new_file.close()
+    with open(src, "rb") as new_file:
+        headers = {
+            'x-apikey': vitusTotalAPI
+        }
+        files = {'file': (src, new_file)}
+        response = requests.post(apiUrl, headers=headers, files=files)
+        if response.status_code == 200:
+            print("Файл успешно загружен:")
+            linkOfAnalysis = response.json().get('data', {}).get('links').get('self')
+        else:
+            print(f"Ошибка при загрузке файла: {response.status_code}")
+            print(response.text)
+        while True:
+            response = requests.get(linkOfAnalysis, headers=headers)
+            if response.status_code == 200:
+                analysisData = response.json()
+                status = analysisData['data']['attributes']['status']
+                print(f"Статус анализа: {status}")
+
+                if status == 'completed':
+                    print("Анализ завершен!")
+                    break
+                elif status in ['queued', 'in-progress']:
+                    print("Анализ еще не завершен. Ожидание...")
+                    time.sleep(20)  # Подождать 20 секунд перед следующим запросом
+                else:
+                    print(f"Неизвестный статус анализа: {status}")
+                    break
+            else:
+                print(f"Ошибка при проверке статуса анализа: {response.status_code}")
+                print(response.text)
+                break
+        if status == 'completed':
+            results = analysisData['data']['attributes']['results']
+            stats = analysisData['data']['attributes']['stats']
+
+        finalMessage = "📊 Результаты анализа файла:\n"
+        finalMessage += f"✅ Безопасных: {stats.get('harmless', 0)}\n"
+        finalMessage += f"⚠️ Подозрительных: {stats.get('suspicious', 0)}\n"
+        finalMessage += f"❌ Вредоносных: {stats.get('malicious', 0)}\n"
+        finalMessage += f"❓ Неопределенных: {stats.get('undetected', 0)}\n\n"
+
+        # Детали от каждого антивируса
+        finalMessage += "🔍 Детали анализа:\n"
+        for engine, result in results.items():
+            category = result.get('category', 'unknown')
+            detection = result.get('result', 'нет данных')
+            engine_name = result.get('engine_name', engine)
+
+            finalMessage += f"- {engine_name}: "
+            if category == 'malicious':
+                finalMessage += f"⚠️ ВРЕДОНОСНЫЙ ({detection})\n"
+            elif category == 'suspicious':
+                finalMessage += f"⚠️ ПОДОЗРИТЕЛЬНЫЙ ({detection})\n"
+            elif category == 'harmless':
+                finalMessage += f"✅ БЕЗОПАСНЫЙ\n"
+            else:
+                finalMessage += f"❓ НЕОПРЕДЕЛЕННЫЙ\n"
+
+        # Вывод сообщения
+        return finalMessage
