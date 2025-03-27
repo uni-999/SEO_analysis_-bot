@@ -1,6 +1,6 @@
 import requests
 import telebot
-import whois
+import whois as pywhois
 from Configuration import bot, vitusTotalAPI, apiUrl
 import time
 from InputDict import dictForSearch
@@ -13,8 +13,8 @@ def formatDates(dateList):
         dateList = ['N/A']
     return [str(date) for date in dateList]
 
-def findDomain(messange) -> str:
-    w = whois.whois(messange)
+def findDomain(message):
+    w = pywhois.whois(message)
     finalMessange = ""
     for key, value in dictForSearch.items():
         if isinstance(value, list):
@@ -169,6 +169,4 @@ def fileSecurityReport(message):
                 finalMessage += f"✅ БЕЗОПАСНЫЙ\n"
             else:
                 finalMessage += f"❓ НЕОПРЕДЕЛЕННЫЙ\n"
-
-        # Вывод сообщения
-        return finalMessage
+        bot.reply_to(message, finalMessage)
