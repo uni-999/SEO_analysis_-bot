@@ -18,4 +18,4 @@ Scapy — универсальный, поистине мощный инстру
 1. Клонируйте репозиторий:
    ```bash
    git clone https://github.com/username/repository.git
-2. Запускаете файл main.py
+2. Запускаете файл Main.py
