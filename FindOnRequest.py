@@ -21,6 +21,8 @@ def findDomain(message):
             finalMessange += processList(key, value, w)
         else:
             finalMessange += processString(key, value, w)
+    finalMessange += addMonitorRuntime(message)
+    finalMessange += addSecurityHeadersChecker(message)
     return finalMessange
 
 def processList(key, value, w) -> str:
@@ -170,3 +172,45 @@ def fileSecurityReport(message):
             else:
                 finalMessage += f"❓ НЕОПРЕДЕЛЕННЫЙ\n"
         bot.reply_to(message, finalMessage)
+
+def addMonitorRuntime(domain):
+    if not domain.startswith("http"):
+        domain = f"http://{domain}"
+    try:
+        response = requests.get(domain, timeout=5)
+        return f"Время отклика : {response.elapsed.total_seconds()}\n Url ссылка: {response.url}\n"
+
+    except requests.exceptions.RequestException as e:
+        return "Время отклика : Возникла ошибка при получении данных"
+
+def addSecurityHeadersChecker(domain):
+    if not domain.startswith("http"):
+        domain = f"https://{domain}"
+    try:
+        response = requests.get(domain, timeout=5)
+        headers = response.headers
+        headers_list = [
+            "Strict-Transport-Security",
+            "Content-Security-Policy",
+            "X-Frame-Options",
+            "X-XSS-Protection",
+            "X-Content-Type-Options"
+        ]
+        security_headers = {
+            "HSTS": headers.get(headers_list[0],"N/A"),
+            "Content-Security-Policy": headers.get(headers_list[1],"N/A"),
+            "X-Frame-Options": headers.get(headers_list[2],"N/A"),
+            "X-XSS-Protection": headers.get(headers_list[3],"N/A"),
+            "X-Content-Type-Options": headers.get(headers_list[4],"N/A")
+        }
+        final_message = (
+            f"HSTS: {security_headers['HSTS']}\n"
+            f"Политика безопасности контента: {security_headers['Content-Security-Policy']}\n"
+            f"Защита от внедрения во фреймы: {security_headers['X-Frame-Options']}\n"
+            f"Защита от XSS атак: {security_headers['X-XSS-Protection']}\n"
+            f"Защита от MIME-типирования: {security_headers['X-Content-Type-Options']}\n"
+        )
+        return final_message
+
+    except requests.exceptions.RequestException as e:
+        return
